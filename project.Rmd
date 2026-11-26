@@ -514,6 +514,196 @@ cat("Aantal eiwitten:", ncol(protein_filtered)-1, "\n")
 ```
 Na kwaliteitscontrole en filtering bleven 867 stalen en 1322 eiwitten beschikbaar voor verdere analyses. De resterende missingness was beperkt (0,21%) en de dataset werd geschikt geacht voor downstream analyses.
 
+```{r}
+# ==============================================================================
+# PART 2: MULTIVARIABELE ANALYSE VOOR GDF15 (OF CXCL17)
+# Gebruikt: protein_clean (eiwitdata) + data_clean (metadata)
+# ==============================================================================
+
+library(tidyverse)
+library(broom)
+library(car)
+library(patchwork)
+
+# ------------------------------------------------------------------------------
+# STAP 1: Controleer de kolommen in protein_clean en data_clean
+# ------------------------------------------------------------------------------
+chosen_protein <- "GDF15"   # Of verander naar "CXCL17"
+
+stopifnot(
+  exists("protein_clean"),
+  exists("data_clean"),
+  chosen_protein %in% colnames(protein_clean),
+  "sample_kit_id" %in% colnames(protein_clean),
+  "sample_kit_id" %in% colnames(data_clean)
+)
+
+cat("Eiwit gevonden in protein_clean:", chosen_protein, "\n")
+cat("Aantal rijen in protein_clean:", nrow(protein_clean), "\n")
+cat("Aantal rijen in data_clean   :", nrow(data_clean), "\n\n")
 
 
+# ------------------------------------------------------------------------------
+# STAP 2: Koppel metadata (data_clean) aan eiwitexpressie (protein_clean)
+#         en selecteer 1 onafhankelijke baseline-meting per donor
+# ------------------------------------------------------------------------------
+# Check eerst welke kolommen er in data_clean zitten voor leeftijd, CMV, geslacht, visit
+# (Als een van deze kolommen in metadata_pca staat i.p.v. data_clean, gebruiken we die als fallback)
+meta_source <- if (all(c("sample.subjectAgeAtDraw", "cmv_status", "subject.biologicalSex") %in% colnames(data_clean))) {
+  data_clean
+} else {
+  metadata_pca
+}
+
+df_joined <- inner_join(
+  meta_source %>%
+    select(
+      sample_kit_id,
+      donor_id = `subject.subjectGuid`,
+      age      = `sample.subjectAgeAtDraw`,
+      cmv      = `cmv_status`,
+      sex      = `subject.biologicalSex`,
+      any_of(c("sample.visitName", "sample.daysSinceFirstVisit"))
+    ),
+  protein_clean %>%
+    select(
+      sample_kit_id,
+      protein_npx = all_of(chosen_protein)
+    ),
+  by = "sample_kit_id"
+)
+
+# Filter op pre-vaccinatie baseline indien aanwezig, en neem 1 unieke meting per donor
+has_pre_visit <- "sample.visitName" %in% colnames(df_joined) &&
+  any(grepl("pre|baseline|day\\s*0|v0", df_joined$sample.visitName, ignore.case = TRUE), na.rm = TRUE)
+
+df_baseline <- df_joined %>%
+  { if (has_pre_visit) filter(., grepl("pre|baseline|day\\s*0|v0", sample.visitName, ignore.case = TRUE)) else . } %>%
+  arrange(donor_id, age) %>%
+  distinct(donor_id, .keep_all = TRUE) %>%
+  mutate(
+    age         = as.numeric(age),
+    protein_npx = as.numeric(protein_npx),
+    cmv         = factor(cmv),
+    sex         = factor(sex)
+  ) %>%
+  filter(!is.na(protein_npx), !is.na(age), !is.na(cmv), !is.na(sex))
+
+cat("Aantal unieke donoren in baseline-analyse:", nrow(df_baseline), "\n")
+print(summary(df_baseline %>% select(protein_npx, age, cmv, sex)))
+
+
+# ------------------------------------------------------------------------------
+# STAP 3: Multivariabel lineair regressiemodel fitten
+# ------------------------------------------------------------------------------
+# Model: GDF15 (NPX) ~ Leeftijd + CMV-serostatus + Biologisch geslacht
+model_part2 <- lm(protein_npx ~ age + cmv + sex, data = df_baseline)
+
+cat("\n--- Model Summary ---\n")
+print(summary(model_part2))
+
+# Nette resultatentabel met 95%-betrouwbaarheidsintervallen
+coef_table <- tidy(model_part2, conf.int = TRUE) %>%
+  mutate(
+    est_per_10_yrs  = if_else(term == "age", estimate * 10, NA_real_),
+    low_per_10_yrs  = if_else(term == "age", conf.low * 10, NA_real_),
+    high_per_10_yrs = if_else(term == "age", conf.high * 10, NA_real_),
+    fc_per_10_yrs   = if_else(term == "age", 2^(estimate * 10), NA_real_)
+  )
+
+cat("\n--- Coëfficiënten en 95% betrouwbaarheidsintervallen ---\n")
+print(coef_table)
+
+# Vergelijk model mét leeftijd vs. model zonder leeftijd (alleen CMV + geslacht)
+model_null <- lm(protein_npx ~ cmv + sex, data = df_baseline)
+cat("\n--- ANOVA: Toegevoegde waarde van leeftijd ---\n")
+print(anova(model_null, model_part2))
+
+
+# ------------------------------------------------------------------------------
+# STAP 4: Modelaannames controleren (Rubric!)
+# ------------------------------------------------------------------------------
+# 4A. Multicollineariteit (VIF moet < 5 zijn)
+cat("\n--- Variance Inflation Factors (VIF) ---\n")
+print(vif(model_part2))
+
+# 4B. Diagnostische plots (Lineariteit, Normaliteit residuen, Homoscedasticiteit, Outliers)
+par(mfrow = c(2, 2), mar = c(4, 4, 2.5, 1))
+plot(model_part2)
+par(mfrow = c(1, 1))
+
+# 4C. Check of het verband met leeftijd niet-lineair is (kwadratische term)
+model_quad <- lm(protein_npx ~ poly(age, 2) + cmv + sex, data = df_baseline)
+cat("\n--- Check niet-lineariteit van leeftijd ---\n")
+print(anova(model_part2, model_quad))
+
+
+# ------------------------------------------------------------------------------
+# STAP 5: Visualisaties maken voor je verslag
+# ------------------------------------------------------------------------------
+age_p_val <- coef_table %>% filter(term == "age") %>% pull(p.value)
+age_est   <- coef_table %>% filter(term == "age") %>% pull(estimate)
+r2_adj    <- summary(model_part2)$adj.r.squared
+
+# Panel A: GDF15 expressie tegen leeftijd per CMV-status
+p_panel_a <- ggplot(df_baseline, aes(x = age, y = protein_npx, color = cmv, fill = cmv)) +
+  geom_point(alpha = 0.65, size = 2.2) +
+  geom_smooth(method = "lm", se = TRUE, alpha = 0.18, linewidth = 1.1) +
+  scale_color_brewer(palette = "Set1", name = "CMV-status") +
+  scale_fill_brewer(palette = "Set1", name = "CMV-status") +
+  labs(
+    title = paste0("A. ", chosen_protein, " plasma-expressie over leeftijd"),
+    subtitle = sprintf(
+      "n = %d unieke donoren | beta_leeftijd = %.4f NPX/jr (p = %.3g) | Adj. R2 = %.3f",
+      nrow(df_baseline), age_est, age_p_val, r2_adj
+    ),
+    x = "Leeftijd (jaren)",
+    y = paste0(chosen_protein, " expressie (NPX, log2)")
+  ) +
+  theme_minimal(base_size = 11.5) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    legend.position = "top",
+    panel.grid.minor = element_blank()
+  )
+
+# Panel B: Forest plot van de gecorrigeerde regressiecoëfficiënten (+ 95% BI)
+forest_df <- coef_table %>%
+  filter(term != "(Intercept)") %>%
+  mutate(
+    est_plot  = if_else(term == "age", estimate * 10, estimate),
+    low_plot  = if_else(term == "age", conf.low * 10, conf.low),
+    high_plot = if_else(term == "age", conf.high * 10, conf.high),
+    nice_term = case_when(
+      term == "age" ~ "Leeftijd (per 10 jaar)",
+      grepl("^cmv", term) ~ paste0("CMV: ", sub("^cmv", "", term)),
+      grepl("^sex", term) ~ paste0("Geslacht: ", sub("^sex", "", term)),
+      TRUE ~ term
+    )
+  )
+
+p_panel_b <- ggplot(forest_df, aes(x = est_plot, y = reorder(nice_term, est_plot))) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey45", linewidth = 0.8) +
+  geom_errorbarh(
+    aes(xmin = low_plot, xmax = high_plot),
+    height = 0.22,
+    linewidth = 0.95,
+    color = "#1F4E78"
+  ) +
+  geom_point(size = 3.3, color = "#C0392B") +
+  labs(
+    title = "B. Multivariabele effecten (95% BI)",
+    subtitle = "Gecorrigeerd voor de overige variabelen in het model",
+    x = "Verandering in NPX (log2)",
+    y = NULL
+  ) +
+  theme_minimal(base_size = 11.5) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
+  )
+
+part2_figuur <- p_panel_a + p_panel_b + plot_layout(widths = c(1.35, 1))
+print(part2_figuur)
+```
 
