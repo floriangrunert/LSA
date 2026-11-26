@@ -514,6 +514,24 @@ cat("Aantal eiwitten:", ncol(protein_filtered)-1, "\n")
 ```
 Na kwaliteitscontrole en filtering bleven 867 stalen en 1322 eiwitten beschikbaar voor verdere analyses. De resterende missingness was beperkt (0,21%) en de dataset werd geschikt geacht voor downstream analyses.
 
+# Part 2
+
+**Onderzoeksvraag:**  
+"Stijgt de plasma-expressie van het verouderingseiwit GDF15 significant met de leeftijd van gezonde volwassenen op baseline, wanneer gecontroleerd wordt voor CMV-serostatus en biologisch geslacht?"
+
+**Hypothese:**
+- **H0:** Op baseline is er geen statistisch significant verband tussen leeftijd en de plasma-expressie van GDF15 ($\beta_{\text{leeftijd}} = 0$), gecorrigeerd voor CMV-serostatus en biologisch geslacht.
+- **H1:** Op baseline stijgt de plasma-expressie van GDF15 significant met de leeftijd ($\beta_{\text{leeftijd}} > 0$), onafhankelijk van CMV-serostatus en biologisch geslacht.
+
+**Variabelen:**
+- **Outcome (afhankelijke variabele):** `GDF15` (continue NPX-waarde op $\log_2$-schaal uit `protein_clean`).
+- **Hoofdpredictor:** `sample.subjectAgeAtDraw` (continue leeftijd in jaren op het moment van bloedafname).
+- **Covariaten (confounders):** `cmv_status` (categorisch: Negative vs. Positive) en `subject.biologicalSex` (categorisch: Female vs. Male).
+- **Onafhankelijke eenheid:** Eén baseline-meting (vroegste pre-vaccinatie sample) per unieke donor (`subject.subjectGuid`, $n = 95$).
+
+**Statistisch model:**  
+$$\text{GDF15 (NPX)} = \beta_0 + \beta_1 \cdot \text{Leeftijd} + \beta_2 \cdot \text{CMV} + \beta_3 \cdot \text{Geslacht} + \varepsilon$$
+
 ```{r}
 # ==============================================================================
 # PART 2: MULTIVARIABELE ANALYSE VOOR GDF15 (OF CXCL17)
@@ -706,4 +724,4 @@ p_panel_b <- ggplot(forest_df, aes(x = est_plot, y = reorder(nice_term, est_plot
 part2_figuur <- p_panel_a + p_panel_b + plot_layout(widths = c(1.35, 1))
 print(part2_figuur)
 ```
-
+# "In een multivariabel lineair regressiemodel op $n = 95$ onafhankelijke baseline-donoren (leeftijd 25–65 jaar) stijgt de plasma-expressie van GDF15 significant met de leeftijd ($\beta = 0{,}0236\ \log_2\text{ NPX/jaar}$, 95%-BI: $0{,}0184\text{--}0{,}0288$, $p = 3{,}48 \times 10^{-14}$), gecorrigeerd voor CMV-serostatus ($p = 0{,}157$) en biologisch geslacht ($p = 0{,}526$). Het model verklaart 45,4% van de variantie (adjusted $R^2 = 0{,}454$), multicollineariteit is afwezig ($\text{VIF} \le 1{,}04$) en een kwadratische leeftijdsterm verbetert de passing niet ($p = 0{,}951$). Daarmee verwerpen we de nulhypothese en bevestigen we dat hogere leeftijd samengaat met hogere GDF15-niveaus, onafhankelijk van CMV en geslacht"
