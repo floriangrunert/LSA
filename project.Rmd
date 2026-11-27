@@ -1,9 +1,9 @@
 ---
 title: "Groupsproject - Dataset 1: Olink-age"
 output:
+  word_document: default
   html_document: default
   pdf_document: default
-  word_document: default
 date: "2026-11-19"
 ---
 
@@ -11,11 +11,11 @@ date: "2026-11-19"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
----
-PART 1: Explore, preprocess and quality-control the data
---- 
+
+##PART 1: Explore, preprocess and quality-control the data
+
 ## R Markdown
---- Data inlezen --- 
+Data inlezen
 read the csv files
 ```{r cars}
 #Benodige pakketten inladen
@@ -31,9 +31,7 @@ head(protein_raw, 5)
 head(protein_anno, 5)
 
 ```
----
-STAP A: DATASTRUCTUUR EN VARIABELE-TYPEN VERKENNEN
----
+###STAP A: DATASTRUCTUUR EN VARIABELE-TYPEN VERKENNEN
 
 ```{r data-dimensions}
 #1.Dimensies van de datasets controleren 
@@ -57,9 +55,9 @@ sum(is.na(protein_raw$sample_kit_id))
 
 ```
 Krijgen 2x 0 als antwoord bij kwaliteitscontrole. Dit wilt zeggen dat er geen "anonieme" stalen of kwijtgeraakte IDs zijn (NA's). Dit wilt zeggen dat we de 2 datasets veilig aan elkaar kunnen linken.
----
-STAP B: Missing values bekijken
---- 
+
+##STAP B: Missing values bekijken
+
 1. METADATA
 Missing-values in kaart brengen
 ```{r missing-meta}
@@ -77,7 +75,7 @@ missing_metadata <- sample_data %>%
 print(missing_metadata, n = 40)
 ```
 Missing metadata plot
-```{r missing-metadata-plot}
+```{r}
 ggplot(
   missing_metadata,
   aes(x = Missing_Percentage)
@@ -88,7 +86,7 @@ ggplot(
     colour = "black"
   ) +
   geom_vline(
-    xintercept = 79, ## waarom passen we dit niet aan 75 zoals herionder te vermelden 
+    xintercept = 75,  
     colour = "red",
     linetype = "dashed",
     linewidth = 1
@@ -174,19 +172,18 @@ ggplot(
     y = "Aantal proteïnen"
   )
 ```
-Op basis van de plot zien we heel veel missing-value waarden boven de 82%. Dergelijke variabelen leveren weinig bruikbare informatie op en kunnen latere analyses verstoren. Daarom werden stalen met een hoog aantal ontbrekende waarden verwijderd en werden metadata-variabelen met meer dan 82% ontbrekende waarden uitgesloten.
+Op basis van de plot zien we heel veel missing-value waarden boven de 80%. Dergelijke variabelen leveren weinig bruikbare informatie op en kunnen latere analyses verstoren. Daarom werden stalen met een hoog aantal ontbrekende waarden verwijderd en werden metadata-variabelen met meer dan 82% ontbrekende waarden uitgesloten.
 ```{r}
-# Verwijder metadata-variabelen met meer dan 75% ontbrekende waarden
+# Verwijder metadata-variabelen met meer dan 80% ontbrekende waarden
 # Maak een opgeschoonde versie van de metadata
 missing_proteins_raw <- missing_proteins_raw %>%
-  select(where(~ mean(is.na(.)) <= 0.82))
+  select(where(~ mean(is.na(.)) <= 0.80))
 ```
 
 
----
-STAP C: dubbele assays zoeken 
+
+###STAP C: dubbele assays zoeken 
 In de annotatietabel controleren we of er eiwitten zijn die via de variabele same_assay_as aan dezelfde Olink-assay gekoppeld zijn. Dergelijke eiwitten vertegenwoordigen hetzelfde onderliggende meetsignaal en kunnen leiden tot redundante informatie in de dataset.
----
 ```{r}
 # Zoek eiwitten die gekoppeld zijn aan dezelfde assay
 duplicate_assays <- protein_anno %>%
@@ -244,9 +241,9 @@ mean(is.na(protein_clean)) * 100
 
 Dit wilt zeggen dat 0,21% van alle waarden ontbreken. Na het samenvoegen van de duplicate assay-paren werd de missingness opnieuw geëvalueerd. Er bleven 2683 ontbrekende waarden over, wat overeenkomt met slechts 0,21% van alle metingen. Dit wijst erop dat de dataset na preprocessing slechts een zeer beperkt aantal ontbrekende waarden bevat.
 
----
-STAP D: Eiwitten onder de detectielimiet (LOD)
----
+
+###STAP D: Eiwitten onder de detectielimiet (LOD)
+
 Om de kwaliteit van de eiwitmetingen te evalueren, werd voor elk eiwit het percentage waarden onder de detectielimiet (Limit of Detection, LOD) onderzocht. Eiwitten waarvoor een groot deel van de metingen onder de detectielimiet ligt, bevatten mogelijk onvoldoende betrouwbare informatie voor verdere analyses.
 ```{r}
 summary(protein_anno_clean$pct_below_lod)
@@ -293,9 +290,9 @@ ncol(protein_filtered)
 
 ```
 In totaal werden 150 eiwitten verwijderd omdat meer dan 50% van hun metingen onder de detectielimiet lag. Na deze filtering bleven 1322 eiwitten beschikbaar voor verdere analyses.
----
-STAP E: Onmogelijke data verwijderen
----
+
+###STAP E: Onmogelijke data verwijderen
+
 Naast ontbrekende waarden werd ook gecontroleerd op biologisch onwaarschijnlijke of onmogelijke waarden in de metadata. Hierbij werd specifiek gekeken naar negatieve waarden en nulwaarden in numerieke variabelen.
 ```{r}
 numeric_vars <- sample_data %>%
@@ -368,9 +365,9 @@ ggplot(plot_data, aes(x = NPX)) +
 
 De meeste geselecteerde eiwitten vertonen een relatief symmetrische verdeling zonder uitgesproken rechtsscheefheid. Dit patroon is consistent met reeds log2-getransformeerde data. Daarom werd geen bijkomende log-transformatie toegepast.
 
----
-STEP G: OUTLIERS
----
+
+###STEP G: OUTLIERS
+
 Tot slot werd gecontroleerd op mogelijke uitschieters (outliers) in de eiwitexpressiegegevens. Outliers werden geïdentificeerd aan de hand van de IQR-regel (1,5 × IQR). Omdat extreme eiwitwaarden ook een biologische oorzaak kunnen hebben, werden deze observaties niet automatisch verwijderd.
 ```{r}
 protein_numeric <- protein_filtered %>%
@@ -391,9 +388,9 @@ lengths(outliers)
 ```
 Hoewel enkele potentiële outliers werden geïdentificeerd met de IQR-regel, werden deze niet verwijderd. De verdelingen van de eiwitten suggereerden dat deze waarden eerder biologisch dan technisch van aard zijn.
 
----
-STEP H: Principal Component Analysis (PCA) en batch-effect analyse
----
+
+###STEP H: Principal Component Analysis (PCA) en batch-effect analyse
+
 
 Om de globale structuur van de dataset te onderzoeken, werd een Principal Component Analysis (PCA) uitgevoerd. PCA laat toe om na te gaan of samples spontaan clusteren op basis van biologische kenmerken (zoals leeftijdsgroep en CMV-status) of technische factoren (zoals Olink batch of plate ID).
 ```{r}
@@ -436,76 +433,60 @@ pc2_label <- paste0(
 )
 ```
 
-PCA VISUALISEREN
-```{r}
-plot(
-  pca$x[,1],
-  pca$x[,2],
-  pch = 16,
-  col = "darkgreen",
-  xlab = pc1_label,
-  ylab = pc2_label,
-  main = "PCA van de proteomicsdata"
-)
-```
+
 PCA OP BATCH EFFECT
 ```{r}
-plot(
-  pca$x[,1],
-  pca$x[,2],
-  col = as.factor(metadata_pca$olink_batch_id),
-  pch = 16,
-  main = "PCA volgens Olink batch"
-)
+ggplot(
+  data.frame(
+    PC1 = pca$x[,1],
+    PC2 = pca$x[,2],
+    Batch = as.factor(metadata_pca$olink_batch_id)
+  ),
+  aes(
+    PC1,
+    PC2,
+    colour = Batch
+  )
+) +
+  geom_point(alpha = 0.7, size = 2) +
+  theme_bw() +
+  labs(
+    title = "PCA volgens Olink batch",
+    x = pc1_label,
+    y = pc2_label,
+    colour = "Batch"
+  )
 ```
 De PCA toont een gedeeltelijke clustering volgens Olink-batch. Dit suggereert dat batch-effecten mogelijk bijdragen aan een deel van de variatie in de proteomicsdata.
 
 PCA LEEFTIJD
 ```{r}
-plot(
-  pca$x[,1],
-  pca$x[,2],
-  col = as.factor(metadata_pca$subject.ageGroup),
-  pch = 16,
-  main = "PCA volgens leeftijdsgroep"
-)
+ggplot(
+  data.frame(
+    PC1 = pca$x[,1],
+    PC2 = pca$x[,2],
+    AgeGroup = metadata_pca$subject.ageGroup
+  ),
+  aes(
+    PC1,
+    PC2,
+    colour = AgeGroup
+  )
+) +
+  geom_point(alpha = 0.7) +
+  theme_bw()
 ```
 De leeftijdsgroepen vertonen aanzienlijke overlap. Hoewel een lichte tendens zichtbaar lijkt, worden beide groepen niet duidelijk van elkaar gescheiden.
 
-PCA CMV-STATUS
-```{r}
-plot(
-  pca$x[,1],
-  pca$x[,2],
-  col = as.factor(metadata_pca$cmv_status),
-  pch = 16,
-  main = "PCA volgens CMV-status"
-)
-```
-Wanneer de stalen werden gekleurd volgens CMV-status, werd geen duidelijke clustering waargenomen. CMV-positieve en CMV-negatieve individuen vertonen een sterke overlap in de eerste twee hoofdcomponenten. Dit suggereert dat CMV-status geen dominante bron van variatie vormt in de globale proteomicsdataset.
-
-PCA lymfocyt
-```{r}
-plot(
-  pca$x[,1],
-  pca$x[,2],
-  pch = 16,
-  col = as.factor(metadata_pca$subject.ethnicity),
-
-  xlab = pc1_label,
-  ylab = pc2_label,
-  main = "PCA van de proteomicsdata"
-)
-```
 
 
 
 CONCLUSIE PCA:
-De PCA suggereerde een beperkte invloed van batch op de totale proteoomvariatie. Daarom werd batch niet vooraf uit de dataset verwijderd. Indien relevant voor de onderzoeksvraag, kan batch later worden opgenomen als covariaat in statistische modellen. Leeftijd lijkt een beperkte invloed te hebben op het proteoomprofiel, terwijl CMV-status geen duidelijke clustering veroorzaakt. De eerste twee hoofdcomponenten bieden bijgevolg weinig bewijs voor een sterk globaal effect van CMV op de eiwitexpressie.
+De PCA suggereerde een beperkte invloed van batch op de totale proteoomvariatie. Daarom werd batch niet vooraf uit de dataset verwijderd. Indien relevant voor de onderzoeksvraag, kan batch later worden opgenomen als covariaat in statistische modellen. Leeftijd lijkt een beperkte invloed te hebben op het proteoomprofiel..
 
----
-STAP I: Controle voor verdere analyse
----
+
+###STAP I: Controle voor verdere analyse
+
 Na de preprocessing werd een laatste kwaliteitscontrole uitgevoerd. Duplicate assays werden samengevoegd, eiwitten met meer dan 50% waarden onder de detectielimiet werden verwijderd en potentiële technische batch-effecten werden geëvalueerd via PCA. De distributie van de NPX-waarden bevestigde dat geen bijkomende log-transformatie nodig was
 
 ```{r}
@@ -514,7 +495,7 @@ cat("Aantal eiwitten:", ncol(protein_filtered)-1, "\n")
 ```
 Na kwaliteitscontrole en filtering bleven 867 stalen en 1322 eiwitten beschikbaar voor verdere analyses. De resterende missingness was beperkt (0,21%) en de dataset werd geschikt geacht voor downstream analyses.
 
-# Part 2
+## Part 2
 
 **Onderzoeksvraag:**  
 "Stijgt de plasma-expressie van het verouderingseiwit GDF15 significant met de leeftijd van gezonde volwassenen op baseline, wanneer gecontroleerd wordt voor CMV-serostatus en biologisch geslacht?"
@@ -725,3 +706,281 @@ part2_figuur <- p_panel_a + p_panel_b + plot_layout(widths = c(1.35, 1))
 print(part2_figuur)
 ```
 # "In een multivariabel lineair regressiemodel op $n = 95$ onafhankelijke baseline-donoren (leeftijd 25–65 jaar) stijgt de plasma-expressie van GDF15 significant met de leeftijd ($\beta = 0{,}0236\ \log_2\text{ NPX/jaar}$, 95%-BI: $0{,}0184\text{--}0{,}0288$, $p = 3{,}48 \times 10^{-14}$), gecorrigeerd voor CMV-serostatus ($p = 0{,}157$) en biologisch geslacht ($p = 0{,}526$). Het model verklaart 45,4% van de variantie (adjusted $R^2 = 0{,}454$), multicollineariteit is afwezig ($\text{VIF} \le 1{,}04$) en een kwadratische leeftijdsterm verbetert de passing niet ($p = 0{,}951$). Daarmee verwerpen we de nulhypothese en bevestigen we dat hogere leeftijd samengaat met hogere GDF15-niveaus, onafhankelijk van CMV en geslacht"
+
+## Part 3: Multiple Testing Study
+In dit onderdeel voeren we een **Differentiële Eiwitexpressie-analyse (DEA)** uit op het gehele Olink-panel om te bepalen welke plasma-eiwitten significant veranderen bij biologische veroudering tussen **jonge volwassenen** (`Young Adult`) en **oudere volwassenen** (`Older Adult`).
+
+Voor elk afzonderlijk eiwit voeren we een meervoudig lineair regressiemodel uit (NPX ~ ageGroup + olink_batch_id + sex + cmv), waarbij we corrigeren voor mogelijke meetruis (olink_batch_id), geslacht en CMV-serostatus.
+
+
+###STAP A: DEMOGRAFIE EN VOORKOMEN VAN PSEUDOREPLICATIE 
+* **Voorkomen van Pseudoreplicatie:** De Olink-dataset bevat herhaalde longitudinale metingen van dezelfde proefpersonen. Het analyseren van alle 867 stalen zonder correctie zou leiden tot afhankelijke observaties, onderschatting van de standaardfouten en kunstmatig lage p-waarden (fout-positieven). Om statistische onafhankelijkheid te garanderen, filteren we de dataset strikt tot **één baseline-staal per unieke donor** (`sample.daysSinceFirstVisit == 0`, $N = 96$).
+
+Baseline werd gedefinieerd als alle stalen met sample.daysSinceFirstVisit = 0. Deze selectie omvat alle beschikbare baseline-metingen ongeacht het specifieke studiebezoek, terwijl pseudoreplicatie vermeden wordt doordat voor elke deelnemer slechts één baseline-observatie wordt opgenomen.
+
+* **Demografische Balans:** We brengen eerst de verdeling van de unieke donoren op baseline in kaart om de balans tussen jonge en oudere volwassenen te controleren.
+
+```{r}
+library(tidyverse)
+
+# 1. Filter op 96 onafhankelijke baseline-stalen (1 staal per donor op dag 0)
+baseline_samples <- sample_data %>%
+  filter(sample.daysSinceFirstVisit == 0) %>%
+  distinct(subject.subjectGuid, .keep_all = TRUE)
+
+nrow(baseline_samples)
+
+# 2. Visualiseer de verdeling van Young Adults vs. Older Adults
+ggplot(baseline_samples, aes(x = subject.ageGroup, fill = subject.ageGroup)) +
+  geom_bar(width = 0.5, show.legend = FALSE) +
+  geom_text(stat = "count", aes(label = after_stat(count)), vjust = -0.5, fontface = "bold") +
+  scale_fill_manual(values = c("Young Adult" = "#377eb8", "Older Adult" = "#e41a1c")) +
+  theme_minimal() +
+  labs(
+    title = "Demografie van de Baseline Studiepopulatie (N = 96)",
+    subtitle = "Aantal unieke proefpersonen per leeftijdsgroep op baseline",
+    x = "Leeftijdsgroep",
+    y = "Aantal unieke proefpersonen"
+  ) +
+  ylim(0, 60) +
+  theme(plot.title = element_text(face = "bold"))
+```
+
+###STAP B: FILTERING
+In part 1 hebben we al een filterstap toegepast. Eiwitten met meer dan 50% van de metingen onder de detectiegrens zijn verwijderd.
+```{r}
+tested_proteins <- setdiff(
+  colnames(protein_filtered),
+  "sample_kit_id"
+)
+
+length(tested_proteins)
+```
+Na kwaliteitsfiltering bleven 1322 eiwitten beschikbaar voor de multiple testing analyse.
+
+###STAP C: Data-integratie & Meervoudige Regressie per Eiwit (Model & Confounder-correctie)
+Voor elk van de geteste eiwitten uit Stap B fitten we een meervoudig lineair regressiemodel: $$\text{NPX} \sim \text{ageGroup} + \text{factor(olink\_batch\_id)} + \text{subject.biologicalSex} + \text{cmv\_status}$$
+
+Confounder correctie voor batch, geslacht en CMV status.
+
+```{r}
+# 1. Koppel de gefilterde eiwitmatrix op baseline aan de metadata (long format)
+df_baseline_long <- protein_filtered %>%
+  filter(sample_kit_id %in% baseline_samples$sample_kit_id) %>%
+  pivot_longer(
+    -sample_kit_id,
+    names_to = "protein",
+    values_to = "NPX"
+  ) %>%
+  inner_join(
+    baseline_samples %>%
+      select(
+        sample_kit_id,
+        ageGroup = subject.ageGroup,
+        batch_id = olink_batch_id,
+        sex = subject.biologicalSex,
+        cmv = cmv_status
+      ),
+    by = "sample_kit_id"
+  )
+
+# 2. Fit meervoudig lineair model per eiwit & haal Log2FC en p-waarde op voor leeftijd
+regression_results <- data.frame(
+  protein = character(),
+  log2FC = numeric(),
+  p_value = numeric()
+)
+
+for(prot in tested_proteins){
+
+  df_temp <- df_baseline_long %>%
+    filter(protein == prot)
+
+  df_temp$ageGroup <- relevel(
+    factor(df_temp$ageGroup),
+    ref = "Young Adult"
+  )
+
+  fit <- lm(
+    NPX ~ ageGroup +
+      factor(batch_id) +
+      sex +
+      cmv,
+    data = df_temp
+  )
+
+  coef_table <- summary(fit)$coefficients
+
+  if("ageGroupOlder Adult" %in% rownames(coef_table)){
+
+    regression_results <- rbind(
+      regression_results,
+      data.frame(
+        protein = prot,
+        log2FC = coef_table[
+          "ageGroupOlder Adult",
+          "Estimate"
+        ],
+        p_value = coef_table[
+          "ageGroupOlder Adult",
+          "Pr(>|t|)"
+        ]
+      )
+    )
+  }
+}
+
+head(regression_results)
+```
+
+###STAP D: MULTIPLE TESTING CORRECTIE
+Bij het gelijktijdig uitvoeren van meer dan 1.300 onafhankelijke hypothesetesten zou een standaard significantiedrempel van $\alpha = 0.05$ leiden tot tientallen fout-positieve bevindingen (Type I fouten) door puur toeval. 
+
+Om dit te voorkomen passen we de Benjamini-Hochberg (BH) procedure toe op de p-waarden van de leeftijds-coëfficiënt. Hiermee beheersen we de False Discovery Rate (FDR), wat betekent dat het verwachte aandeel valse ontdekkingen onder de significante resultaten onder de 5% blijft.
+
+```{r}
+# Corrigeer voor multiple testing met Benjamini-Hochberg FDR
+
+regression_results$p_adj <- p.adjust(
+  regression_results$p_value,
+  method = "BH"
+)
+
+# Bekijk de eerste resultaten
+head(regression_results)
+
+#Hoeveel significante eiwitten
+sum(regression_results$p_adj < 0.05)
+```
+###STAP E: ASSUMPTIES CHECKEN
+De assumpties van lineaire regressie werden nagegaan aan de hand van residuplots en QQ-plots voor een representatief model.
+Om dit na te gaan kiezen we 1 representatief eiwit (we kiezen GDF15 wat voor part 2 werd gebruikt).
+```{r}
+#1.Dataset voor model
+gdf15_data <- protein_filtered %>%
+  select(sample_kit_id, GDF15) %>%
+  inner_join(
+    baseline_samples %>%
+      select(
+        sample_kit_id,
+        subject.ageGroup,
+        olink_batch_id,
+        subject.biologicalSex,
+        cmv_status
+      ),
+    by = "sample_kit_id"
+  )
+
+#2. GDF15 wordt gebruikt als representatief eiwit
+
+fit_gdf15 <- lm(
+  GDF15 ~ subject.ageGroup +
+    olink_batch_id +
+    subject.biologicalSex +
+    cmv_status,
+  data = gdf15_data
+)
+
+#3. Residuals vs fitted
+plot(
+  fit_gdf15,
+  which = 1
+)
+
+#4. QQplot
+plot(
+  fit_gdf15,
+  which = 2
+)
+```
+De residuals-versus-fitted plot vertoonde geen duidelijk systematisch patroon. Dit suggereert dat de assumpties van lineariteit en homoscedasticiteit redelijk goed voldaan zijn.
+
+De QQ-plot toonde een redelijke overeenkomst tussen de residuen en een theoretische normaalverdeling. Enkel in de uiterste staarten waren beperkte afwijkingen zichtbaar, wat verwacht kan worden bij biologische data.
+
+###STAP F: VISUALISATIE
+```{r}
+# Significantie-label toevoegen
+
+regression_results <- regression_results %>%
+  mutate(
+    significant = ifelse(
+      p_adj < 0.05,
+      "Significant",
+      "Not significant"
+    )
+  )
+
+#Volcano plot maken
+ggplot(
+  regression_results,
+  aes(
+    x = log2FC,
+    y = -log10(p_adj),
+    colour = significant
+  )
+) +
+  geom_point(
+    alpha = 0.7,
+    size = 2
+  ) +
+  geom_hline(
+    yintercept = -log10(0.05),
+    linetype = "dashed"
+  ) +
+  scale_colour_manual(
+    values = c(
+      "Significant" = "#d73027",
+      "Not significant" = "grey70"
+    )
+  ) +
+  theme_bw() +
+  labs(
+    title = "Differentiële eiwitexpressie tussen jonge en oudere volwassenen",
+    subtitle = "Lineaire regressie gecorrigeerd voor batch, geslacht en CMV-status",
+    x = "Log2 Fold Change (Older Adult - Young Adult)",
+    y = "-log10(FDR)",
+    colour = ""
+  )
+
+
+```
+Elk punt vertegenwoordigt één eiwit. De horizontale stippellijn geeft de significantiedrempel (FDR = 0,05) weer. Eiwitten boven deze lijn worden beschouwd als significant verschillend tussen jonge en oudere volwassenen. Punten hoger op de y-as vertegenwoordigen eiwitten met een sterkere statistische associatie met leeftijdsgroep. Positieve log2 fold changes wijzen op een hogere expressie bij oudere volwassenen, terwijl negatieve waarden wijzen op een hogere expressie bij jonge volwassenen.
+
+Na Benjamini-Hochberg-correctie bleven 236 eiwitten significant geassocieerd met leeftijdsgroep (FDR < 0,05). De meerderheid van de significante eiwitten vertoonde een positieve log2 fold change, wat wijst op een hogere expressie bij oudere volwassenen.
+
+###STAP G: SIGNIFICANTSTE EIWITTEN
+
+```{r}
+top10 <- regression_results %>%
+  arrange(p_adj) %>%
+  slice(1:10)
+
+ggplot(
+  top10,
+  aes(
+    x = reorder(protein, log2FC),
+    y = log2FC,
+    fill = log2FC > 0
+  )
+) +
+  geom_col() +
+  coord_flip() +
+  theme_bw() +
+  scale_fill_manual(
+    values = c(
+      "TRUE" = "#d73027",
+      "FALSE" = "#4575b4"
+    ),
+    guide = "none"
+  ) +
+  labs(
+    title = "Top 10 meest significante eiwitten",
+    subtitle = "Verschil tussen oudere en jonge volwassenen",
+    x = "Eiwit",
+    y = "Log2 Fold Change (Older - Young)"
+  )
+```
+De tien meest significante eiwitten vertoonden allemaal een positieve log2 fold change. Dit wijst erop dat deze eiwitten hoger geëxprimeerd zijn bij oudere volwassenen dan bij jonge volwassenen. De sterkste effecten werden waargenomen voor CGA, CXCL17, EDA2R en NEFL. GDF15, een gekende marker van biologische veroudering, behoorde eveneens tot deze groep van sterk geassocieerde eiwitten.
+
+CONCLUSIE
+Voor 1322 eiwitten werd een lineair regressiemodel uitgevoerd waarbij gecorrigeerd werd voor batch, biologisch geslacht en CMV-serostatus. Na Benjamini-Hochberg-correctie bleven 236 eiwitten significant geassocieerd met leeftijdsgroep (FDR < 0,05). De meerderheid van deze eiwitten vertoonde een hogere expressie bij oudere volwassenen. De sterkste associaties werden waargenomen voor onder andere CGA, CXCL17, EDA2R, NEFL en GDF15. Deze resultaten suggereren dat veroudering gepaard gaat met omvangrijke veranderingen in het plasma-proteoom.
